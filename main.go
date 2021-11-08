@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"path/filepath"
 	"regexp"
 )
 
@@ -108,7 +109,8 @@ var fileNameRegex = regexp.MustCompile(`[^a-zA-Z0-9_\-.]`)
 
 func main() {
 	if len(os.Args) != 2 {
-		log.Fatal("usage: go run main.go $addr, for example: go run main.go github.com:443")
+		name := filepath.Base(os.Args[0])
+		log.Fatalf("usage: %s $addr, for example: %s github.com:443", name, name)
 	}
 	certs, err := getCertsFromNetwork(os.Args[1])
 	if err != nil {
