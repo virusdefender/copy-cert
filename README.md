@@ -1,10 +1,10 @@
-# cert-copier
+# copy-cert
 
 基于已知网站 ssl 证书的信息生成新的自签名证书，除了证书是不被信任的以外，其他的信息看上去基本一致。
 
 ## 用法
 
-在 Release 中下载二进制或者自行编译，然后 `cert-copier $addr`，比如 `cert-copier github.com:443` 然后就可以得到几个证书和私钥文件。
+在 Release 中下载二进制或者自行编译，然后 `copy-cert $addr`，比如 `copy-cert github.com:443` 然后就可以得到几个证书和私钥文件。
 
 ```
 ➜  certs git:(main) tree
