@@ -8,11 +8,13 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
+	"strings"
+	"time"
 )
 
 type certPair struct {
@@ -25,7 +27,7 @@ type certPair struct {
 
 func getCertsFromNetwork(addr string) ([]*x509.Certificate, error) {
 	conf := &tls.Config{
-		InsecureSkipVerify: true,
+		InsecureSkipVerify: false,
 	}
 	conn, err := tls.Dial("tcp", addr, conf)
 	if err != nil {
@@ -35,12 +37,6 @@ func getCertsFromNetwork(addr string) ([]*x509.Certificate, error) {
 	return conn.ConnectionState().PeerCertificates, nil
 }
 
-func reverse(s []*certPair) {
-	for i, j := 0, len(s)-1; i < j; i, j = i+1, j-1 {
-		s[i], s[j] = s[j], s[i]
-	}
-}
-
 func makeCerts(originCerts []*x509.Certificate) ([]*certPair, error) {
 	certs := make([]*certPair, len(originCerts))
 	// the origin order: website cert, intermediate ca, root ca
@@ -48,7 +44,7 @@ func makeCerts(originCerts []*x509.Certificate) ([]*certPair, error) {
 		log.Printf("got cert: %s", cert.Subject.CommonName)
 		certs[idx] = &certPair{originCert: cert}
 	}
-	reverse(certs)
+	slices.Reverse(certs)
 
 	for idx, pair := range certs {
 		var pub interface{}
@@ -120,14 +116,20 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	reverse(newCerts)
+	slices.Reverse(newCerts)
 
-	bundleCert, err := os.OpenFile("bundle.crt", os.O_WRONLY|os.O_CREATE, 0o744)
+	dir := filepath.Join("certs", time.Now().Local().Format("2006_01_02_15_04_05"))
+	err = os.MkdirAll(dir, 0o744)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	bundleCert, err := os.OpenFile(filepath.Join(dir, "bundle.crt"), os.O_WRONLY|os.O_CREATE, 0o744)
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer bundleCert.Close()
-	bundleKey, err := os.OpenFile("bundle.key", os.O_WRONLY|os.O_CREATE, 0o744)
+	bundleKey, err := os.OpenFile(filepath.Join(dir, "bundle.key"), os.O_WRONLY|os.O_CREATE, 0o744)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -135,8 +137,10 @@ func main() {
 
 	for _, pair := range newCerts {
 		log.Printf("going to write new cert and key: %s", pair.newCert.Subject.CommonName)
-		pathBase := fileNameRegex.ReplaceAllString(pair.newCert.Subject.CommonName, "_")
-		err = ioutil.WriteFile(pathBase+".crt", pair.newCertPem, 0o744)
+		// 担心星号在 Windows 上是不合法的文件名（当然我也没测试），但是被替换为下换线又很奇怪，所以替换成 __wildcard__
+		pathBase := strings.ReplaceAll(pair.newCert.Subject.CommonName, "*", "__wildcard__")
+		pathBase = fileNameRegex.ReplaceAllString(pathBase, "_")
+		err = os.WriteFile(filepath.Join(dir, pathBase+".crt"), pair.newCertPem, 0o744)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -145,7 +149,7 @@ func main() {
 			log.Fatal(err)
 		}
 
-		err = ioutil.WriteFile(pathBase+".key", pair.privPem, 0o744)
+		err = os.WriteFile(filepath.Join(dir, pathBase+".key"), pair.privPem, 0o744)
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -154,4 +158,5 @@ func main() {
 			log.Fatal(err)
 		}
 	}
+	log.Printf("certs save to %s", dir)
 }

@@ -1,3 +1,3 @@
-module github.com/virusdefender/cert-copier
+module github.com/virusdefender/copy-cert
 
-go 1.17
+go 1.21
