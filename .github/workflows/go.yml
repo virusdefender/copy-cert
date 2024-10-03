@@ -32,7 +32,7 @@ jobs:
         build darwin amd64
         build darwin arm64
     - name: Upload a Build Artifact
-      uses: actions/upload-artifact@v2.2.4
+      uses: actions/upload-artifact@v4
       with:
         path: build/*
     - name: Release
